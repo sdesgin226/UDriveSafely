@@ -207,7 +207,6 @@ public abstract class CameraActivity extends AppCompatActivity implements ImageR
                 return;
             }
             isProcessingFrame = true;
-            Trace.beginSection("imageAvailable");
             final Image.Plane[] planes = image.getPlanes();
             fillBytes(planes, yuvBytes);
             yRowStride = planes[0].getRowStride();

@@ -1,4 +1,5 @@
 /*
+ * Copyright 2019 The Achievers. All Rights Reserved.
  * Copyright 2019 The TensorFlow Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,17 +26,13 @@ import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.RectF;
 import android.graphics.Typeface;
-import android.hardware.Camera;
-import android.media.ImageReader;
 import android.media.ImageReader.OnImageAvailableListener;
+import android.media.MediaPlayer;
 import android.os.SystemClock;
 import android.util.Size;
 import android.util.TypedValue;
-import android.view.View;
-import android.widget.CompoundButton;
 import android.widget.Toast;
 
-import com.theachievers.udrivesafely.OverlayView;
 import com.theachievers.udrivesafely.OverlayView.DrawCallback;
 
 import java.io.IOException;
@@ -50,30 +47,24 @@ import java.util.List;
 public class DetectorActivity extends CameraActivity implements OnImageAvailableListener {
 
   // Configuration values for the prepackaged SSD model.
-  private static final int TF_OD_API_INPUT_SIZE = 300;
-  private static final boolean TF_OD_API_IS_QUANTIZED = false;
-  private static final String TF_OD_API_MODEL_FILE = "detect.tflite";
-  private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/labelmap.txt";
-  private static final DetectorMode MODE = DetectorMode.TF_OD_API;
+  private static final int INPUT_SIZE = 300;
+  private static final String MODEL_FILE = "detect.tflite";
+  private static final String LABELMAP = "file:///android_asset/labelmap.txt";
   // Minimum detection confidence to track a detection.
-  private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
+  private static final float MINIMUM_CONFIDENCE = 0.5f;
   private static final boolean MAINTAIN_ASPECT = false;
   private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 480);
-  private static final boolean SAVE_PREVIEW_BITMAP = false;
   private static final float TEXT_SIZE_DIP = 10;
   OverlayView trackingOverlay;
   private Integer sensorOrientation;
 
   private Classifier detector;
-
-  private long lastProcessingTimeMs;
   private Bitmap rgbFrameBitmap = null;
   private Bitmap croppedBitmap = null;
   private Bitmap cropCopyBitmap = null;
 
   private boolean computingDetection = false;
 
-  private long timestamp = 0;
 
   private Matrix frameToCropTransform;
   private Matrix cropToFrameTransform;
@@ -92,17 +83,17 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
     tracker = new MultiBoxTracker(this);
 
-    int cropSize = TF_OD_API_INPUT_SIZE;
+    int cropSize = INPUT_SIZE;
 
     try {
       detector =
-          TFLiteObjectDetectionAPIModel.create(
+          TFLiteTrafficSignalDetectionAPI.create(
               getAssets(),
-              TF_OD_API_MODEL_FILE,
-              TF_OD_API_LABELS_FILE,
-              TF_OD_API_INPUT_SIZE,
-              TF_OD_API_IS_QUANTIZED);
-      cropSize = TF_OD_API_INPUT_SIZE;
+                  MODEL_FILE,
+                  LABELMAP,
+                  INPUT_SIZE,
+              false);
+      cropSize = INPUT_SIZE;
     } catch (final IOException e) {
       e.printStackTrace();
       Toast toast =
@@ -128,7 +119,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     cropToFrameTransform = new Matrix();
     frameToCropTransform.invert(cropToFrameTransform);
 
-    trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
+    trackingOverlay = findViewById(R.id.tracking_overlay);
     trackingOverlay.addCallback(
         new DrawCallback() {
           @Override
@@ -145,8 +136,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
   @Override
   protected void processImage() {
-    ++timestamp;
-    final long currTimestamp = timestamp;
     trackingOverlay.postInvalidate();
 
     // No mutex needed as this method is not reentrant.
@@ -162,18 +151,15 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
     final Canvas canvas = new Canvas(croppedBitmap);
     canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
-    // For examining the actual TF input.
-    if (SAVE_PREVIEW_BITMAP) {
-      ImageUtils.saveBitmap(croppedBitmap);
-    }
+
 
     runInBackground(
         new Runnable() {
           @Override
           public void run() {
-            final long startTime = SystemClock.uptimeMillis();
+              MediaPlayer mediaPlayer=null;
+              final long startTime = SystemClock.uptimeMillis();
             final List<Classifier.Recognition> results = detector.recognizeImage(croppedBitmap);
-            lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
 
             cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
             final Canvas canvas = new Canvas(cropCopyBitmap);
@@ -182,29 +168,45 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             paint.setStyle(Style.STROKE);
             paint.setStrokeWidth(2.0f);
 
-            float minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
-            switch (MODE) {
-              case TF_OD_API:
-                minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
-                break;
-            }
+            float minimumConfidence = MINIMUM_CONFIDENCE;
 
             final List<Classifier.Recognition> mappedRecognitions =
                 new LinkedList<Classifier.Recognition>();
 
             for (final Classifier.Recognition result : results) {
+
               final RectF location = result.getLocation();
               if (location != null && result.getConfidence() >= minimumConfidence) {
                 canvas.drawRect(location, paint);
 
                 cropToFrameTransform.mapRect(location);
-
                 result.setLocation(location);
                 mappedRecognitions.add(result);
+                String signal= result.getTitle();
+                switch (signal){
+                    case "stop": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.stop); break;
+                    case "yeild": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.yeild); break;
+                    case "oneWay": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.oneway); break;
+                    case "schoolZone": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.schoolzone); break;
+                }
+                  mediaPlayer.start();
+//                try{
+//                    Thread.sleep(600);
+//                }catch ( InterruptedException e){
+//
+//                }
+
+                  tracker.trackResults(mappedRecognitions,0);
+                  while(mediaPlayer.isPlaying()){
+
+                  }
+                  mediaPlayer.stop();
+                  mediaPlayer.release();
+                break;
               }
             }
+//            tracker.trackResults(mappedRecognitions,0);
 
-            tracker.trackResults(mappedRecognitions, currTimestamp);
             trackingOverlay.postInvalidate();
 
             computingDetection = false;
@@ -223,20 +225,4 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     return DESIRED_PREVIEW_SIZE;
   }
 
-
-    // Which detection model to use: by default uses Tensorflow Object Detection API frozen
-  // checkpoints.
-  private enum DetectorMode {
-    TF_OD_API;
-  }
-
-//    @Override
-//    protected void setUseNNAPI(final boolean isChecked) {
-//        runInBackground(() -> detector.setUseNNAPI(isChecked));
-//    }
-//
-//    @Override
-//    protected void setNumThreads(final int numThreads) {
-//        runInBackground(() -> detector.setNumThreads(numThreads));
-//    }
 }
