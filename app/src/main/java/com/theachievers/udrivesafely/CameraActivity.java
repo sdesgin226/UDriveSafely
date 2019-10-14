@@ -18,13 +18,7 @@ import android.os.Trace;
 import android.os.Bundle;
 import android.util.Size;
 import android.view.Surface;
-import android.view.View;
-import android.view.ViewTreeObserver;
 import android.view.WindowManager;
-import android.widget.CompoundButton;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.nio.ByteBuffer;

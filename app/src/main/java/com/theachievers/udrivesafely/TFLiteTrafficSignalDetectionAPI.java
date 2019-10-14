@@ -194,6 +194,7 @@ public class TFLiteTrafficSignalDetectionAPI implements Classifier {
   @Override
   public void close() {}
 
+  @Override
   public void setNumThreads(int num_threads) {
     if (tfLite != null) tfLite.setNumThreads(num_threads);
   }
