@@ -188,13 +188,10 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                     case "yeild": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.yeild); break;
                     case "oneWay": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.oneway); break;
                     case "schoolZone": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.schoolzone); break;
+                    case "doNotEnter": mediaPlayer= MediaPlayer.create(DetectorActivity.this,R.raw.donotenter); break;
+
                 }
                   mediaPlayer.start();
-//                try{
-//                    Thread.sleep(600);
-//                }catch ( InterruptedException e){
-//
-//                }
 
                   tracker.trackResults(mappedRecognitions,0);
                   while(mediaPlayer.isPlaying()){
